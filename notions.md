@@ -174,5 +174,4 @@ int main(void)
 
 The parent process calls wait(NULL) to collect the child process’s exit status, preventing it from becoming a zombie
 
-
 ### wait and waitpid
