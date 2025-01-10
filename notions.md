@@ -113,10 +113,9 @@ pid_t fork(void);
 ```
 fork do not recive any parms.
 
-the return value made by fork in the parent processes and in the child processes 
-is different
+the return value made by fork in the parent processes and in the child processes is different
 
-[parent_process] -> the retur value is a PID of the [child_processes]
+[parent_process] -> the return value is a PID of the [child_processes]
 [child_process] -> return 0 with this the code know the processes is running
 or **-1** if had an error, and the value is set in [errno]
 
@@ -175,3 +174,52 @@ int main(void)
 The parent process calls wait(NULL) to collect the child process’s exit status, preventing it from becoming a zombie
 
 ### wait and waitpid
+
+__wait__ 
+the wait funtion suspends execution of the calling process until one of its *child* processes terminates.
+
+```c
+pid_t wait(int *status);
+```
+
+__waitpid__
+thw waitpid function provides more control compared to [wait]. It allows waiting for a specific child process or gor processes mathing certain criteria.
+
+```c
+pid_t waitpid(pid_t pid, int *status, int options);
+```
+[pid] can hold some values that change their behavior
+- *-1* wait for ant child process (same as [wait])
+- *>0* wait for the child process with this specific PID
+- *< -1* wait for any child process in the process group whose ID is [pid]
+
+[status] pointer to store the child process's status
+    to inspect the status we can use macros as  *WIFEXITED*, *WEXITSTATUS*,*WIFSIGNALED*
+__WIFEXITED__ -> This macro checks whether the child process exited normally
+**True (non-zero)** if the child process exited normally.
+**False (zero)** if the child did not terminate normally (e.g., was killed by a signal).
+
+__WEXITSTATUS__
+This macro extracts the exit status of a child process that terminated normally. It should only be used if WIFEXITED(status) returns true
+
+[options] modifes the behavior of *waitpid* common option incluse
+- *WNOHANG* return immediatly if no child process has exited
+- *WUNTRACED* waits for child processes that have stopped
+
+Returns the PID of the terminated or stopped child process.
+If no child process has exited, and WNOHANG is specified, it returns 0.
+On error, it returns -1.
+
+### pipe
+the pipe function handle with the task of create a connection between two different processes that are relationated, as example a parent processes and a child processes 
+
+```c
+int pipe(int pipefd[2]);
+```
+
+the arguments of pipefd are an array of two integers
+- pipefd[0] -> the fd of read file
+- pipefd[1] -> the fd of write file
+
+the return value  is is *zero* if everything goes well or *minus one if had an error*
+
