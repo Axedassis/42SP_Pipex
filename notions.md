@@ -172,7 +172,79 @@ int main(void)
 ```
 
 The parent process calls wait(NULL) to collect the child process’s exit status, preventing it from becoming a zombie
+/            \
+  (1)child/ x      (2)secondChild/ z
+         /
+(2)grandChild/ y
 
+(1): created by 1st fork
+(2): created by 2nd fork
+
+Explanation of the while() at the end:
+
+The conditions set up in a way to make sure that a process can only break out of the loop if it has no more children alive. It is necessary because of the reasons explained in the video. The first process that will successfully break out of it will be either y or z, as they have no children to wait for: so wait() will return -1, and errno will be set to ECHILD .
+
+Now the tricky part starts here, because lets say it was process z that just terminated: its parent process was also waiting for one of its children(z or x) to finish. So lets look at what is going on in the parent after z terminated.
+
+So after z finished running, the wait() call will return in the parent, and the loop will evaluate the return value, which wont be -1 in this case, because parent had a child (z) which just terminated. And this is why wait() is called inside a loop: in the case wait() returned in the parent, but it is not desired to continue execution in the parent, the parent process will get stuck at the wait() again instead of continuing. It will get inside the loop and print "Waited for child to finish", it will then loop back to the wait call, and since it has one more child (x) alive, it will wait for that child to change state. 
+This cycle will keep repeating until there are no children to wait for in the parent process.
+
+The fact that the printf() inside the while loop printed 3 times means that there were 3 cases in total when wait() didn't produce an error, meaning 3 times when a process had a child process that terminated. One printf() comes from the parent when z terminated, one comes from x when y terminated, and the 3rd one comes from parent again when x terminated. So each time the wait() function didn't produce an error, the while loop kept calling it again and forced it to produce one, which I personally find interesting.
+
+After z terminated the parent produced the first printf() from inside the loop. Then the only process that can do anything is y, which has no other children, so the wait() inside y will return with -1 and y will terminate as well. This then will be detected by the wait() inside x which was waiting for y to exit, but in this case wait() returns the pid of y, meaning that x will go inside the while loop and print the second "Waited for child to finish" msg, which serves no real purpose at this time, as there are no other children that x is waiting for. So after the printf(), x will have to loop back and make a call to wait() again until all of its children terminated. If x, or any of the processes had more than one child, the loop would make sure that all of them are properly terminated.
+
+Suggestion: instead of calling wait() at the end of the function and printing the same stuff from all of the children, call it at the start, right after you forked.
+You already have an if else tree to identify all the processes, so if you printf() AFTER you waited can use it to visualize who waited for who and see if the code really worked as expected or not.
+The parent should print last, and y should print before x.
+
+int	main()
+{
+	int		id1 = fork();
+	int		id2 = fork();
+
+	while (wait(NULL) != -1 || errno != ECHILD)
+	{
+		;
+	}
+	if (id1 == 0)
+	{
+		if (id2 == 0)
+		{
+			printf("grandchild\n");
+		}
+		else
+		{
+			printf("1st child of parent\n");
+		}
+	}
+	else
+	{
+		if (id2 == 0)
+		{
+			printf("2nd child of parent\n");
+		}
+		else
+		{
+			printf("parent\n");
+		}
+	}
+	return (0);
+}
+
+
+So in this case the possible outputs would be:
+
+2nd child
+grandchild
+1st child
+parent
+
+or:
+
+grandchild
+1st child
+2nd child
+parent
 ### wait and waitpid
 
 __wait__ 
@@ -181,6 +253,9 @@ the wait funtion suspends execution of the calling process until one of its *chi
 ```c
 pid_t wait(int *status);
 ```
+status values can be NULL if we don't need the information of the response.
+in the case of recieve the status value is gonna be the PID of end process
+or **-1** in case of an error (the errno function is also set in this scneraio)
 
 __waitpid__
 thw waitpid function provides more control compared to [wait]. It allows waiting for a specific child process or gor processes mathing certain criteria.
@@ -194,13 +269,48 @@ pid_t waitpid(pid_t pid, int *status, int options);
 - *< -1* wait for any child process in the process group whose ID is [pid]
 
 [status] pointer to store the child process's status
-    to inspect the status we can use macros as  *WIFEXITED*, *WEXITSTATUS*,*WIFSIGNALED*
-__WIFEXITED__ -> This macro checks whether the child process exited normally
-**True (non-zero)** if the child process exited normally.
-**False (zero)** if the child did not terminate normally (e.g., was killed by a signal).
+    to inspect the status we can use macros as  *WIFEXITED*, *WEXITSTATUS*,*WIFSIGNALED*, *WIFSIGNALED*,
+*WTERMSIG*
 
-__WEXITSTATUS__
-This macro extracts the exit status of a child process that terminated normally. It should only be used if WIFEXITED(status) returns true
+
+FUNCTIONS SYNTAX (for their names)
+[Prefix]		[Meaning]
+W			Wait (esperar)
+IF			If (se, condição)
+EXITED		Saiu normalmente
+EXITSTATUS	Código de saída
+SIGNALED	Encerrado por um sinal
+TERMSIG		Sinal de término
+STOPPED		Processo parado
+STOPSIG		Sinal que parou
+CONTINUED	Processo continuado
+
+
+__WIFEXITED__ -> Retorna [TRUE] se o processo filho terminou normalmente como um exit(sucess ex) ou
+o retorno da main.
+
+__WEXITSTATUS__ -> Retorna o código de retorno do exit ou de um return na main. somente valido
+a verifição se __WIFEXITED__ retornar true!!
+
+
+__WIFSIGNALED__ -> Verifica se o processo foi terminado por um sinal do sistema
+
+__WTERMSIG__ -> retorna o sinal terminado pelo processo filho. existem alguns sinais que são comun
+mas todos eles podem ser encontrados dentro da biblioteca <signal.h>
+SIGSEGV, SIGKILL,SIGABRT ......
+
+-----------------------------------------------------------------------
+A way to wait all child process finish is with
+
+```c
+while (wait(NULL) != -1 || errno != ECHILD)
+	printf ("Waited for a child to finish\n");
+```
+
+a wait that return `-1` means that's nothing more to wait or something
+goes wrong to prevent to continue without wait everthnig 
+
+-----------------------------------------------------------------------
 
 [options] modifes the behavior of *waitpid* common option incluse
 - *WNOHANG* return immediatly if no child process has exited
