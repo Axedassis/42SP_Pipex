@@ -6,7 +6,7 @@
 #    By: lsilva-x <lsilva-x@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2025/01/13 00:00:06 by lsilva-x          #+#    #+#              #
-#    Updated: 2025/01/13 00:17:57 by lsilva-x         ###   ########.fr        #
+#    Updated: 2025/01/13 16:18:21 by lsilva-x         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -14,22 +14,31 @@ CC = cc
 CFLAGS = -Wall -Wextra -Werror
 NAME = pipex
 
-SRC = pipex.c
+SRC = pipex.c \
+		utils_pipex.c
 OBJS = $(SRC:.c=.o)
+
+LIBFT_DIR = ./libft
+LIBFT = $(LIBFT_DIR)/lib/libft.a
 
 all: $(NAME)
 
-$(NAME): $(OBJS)
+$(NAME): $(OBJS) $(LIBFT)
 	$(CC) $(CFLAGS) $^ -o $@
-	
+
+$(LIBFT):
+	$(MAKE) -C $(LIBFT_DIR)
+
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
 	rm -f $(OBJS)
+	$(MAKE) -C $(LIBFT_DIR) clean
 
 fclean: clean
 	rm -f $(NAME)
+	$(MAKE) -C $(LIBFT_DIR) fclean
 
 re: fclean all
 
